@@ -8,7 +8,31 @@ servers:
   - url: http://localhost:3001
 
 paths:
-  # Aquí irán tus rutas
+  /alert/alert-appointment:
+    post:
+      summary: Enviar alerta de cita médica
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                clinic:
+                  type: string
+                dateAppointment:
+                  type: string
+                  format: date-time
+                doctorName:
+                  type: string
+      responses:
+        '200':
+          description: Correo enviado y programado exitosamente
+        '400':
+          description: Error al enviar correo
 
 components:
   # Aquí irán tus componentes reutilizables

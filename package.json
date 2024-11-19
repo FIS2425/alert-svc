@@ -46,6 +46,7 @@
     "vitest": "2.1.4"
   },
   "dependencies": {
+    "@sendgrid/mail": "8.1.4",
     "cookie-parser": "^1.4.7",
     "cors": "2.8.5",
     "express": "4.21.1",
