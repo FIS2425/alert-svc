@@ -44,6 +44,12 @@ emailBreaker.fallback(() => {
 export const alertAppointment = async (req, res) => {
   const { email, clinic, dateAppointment, doctorName } = req.body;
 
+  // Verificar campos requeridos
+  if (!email || !clinic || !dateAppointment || !doctorName) {
+    logger.warn('Missing required fields', { email, clinic, dateAppointment, doctorName });
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+
   try {
     // Send appointment confirmation 
     const options = { year: 'numeric', month: 'long', day: 'numeric' };
@@ -58,61 +64,63 @@ export const alertAppointment = async (req, res) => {
       text: formattedText,
     };
   
-    await emailBreaker.fire(msg);
-    logger.info(`Email sent successfully to: ${email}`, {
-      method: req.method,
-      url: req.originalUrl,
-      ip: req.headers && req.headers['x-forwarded-for'] || req.ip
-    });
-
-    // Schedule reminder
     try {
-      const reminderDate = new Date(dateAppointment);
-      reminderDate.setDate(reminderDate.getDate() - 1); // 24 hours before the appointment
-      const formattedReminderTime = reminderDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-      const formattedText = `Estimado/a paciente, le recordamos que tiene una cita médica mañana a las ${formattedReminderTime} con el doctor ${doctorName} en la clínica ${clinic}.`;
-  
-      reminderDate.setDate(reminderDate.getDate() - 1); // 24 hours before the appointment
-      const sendAtTimestamp = Math.floor(reminderDate.getTime() / 1000);
-      
-      const msg2 = {
-        to: email,
-        from: process.env.FROM_EMAIL,
-        subject: 'Recordatorio de cita médica',
-        text: formattedText,
-        sendAt: sendAtTimestamp,
-      };
+      const result = await emailBreaker.fire(msg);
+      if (typeof result === 'string') {
+        return res.status(503).send(result);
+      }
 
-      await emailBreaker.fire(msg2);
-      logger.info(`Reminder scheduled for ${email}`, {
+      logger.info(`Email sent successfully to: ${email}`, {
         method: req.method,
         url: req.originalUrl,
         ip: req.headers && req.headers['x-forwarded-for'] || req.ip
       });
-      res.status(200).json({ message: 'Email sent and scheduled successfully' });
-    } catch (error) {
-      if (error.message === 'Breaker is open') {
-        logger.error('Circuit breaker is open for SendGrid service, returning fallback response');
-        return res.status(503).json({ error: 'Email service temporarily unavailable' });
+
+      // Schedule reminder
+      try {
+        const reminderDate = new Date(dateAppointment);
+        reminderDate.setDate(reminderDate.getDate() - 1); // 24 hours before the appointment
+        const formattedReminderTime = reminderDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+        const formattedReminderText = `Estimado/a paciente, le recordamos que tiene una cita médica mañana a las ${formattedReminderTime} con el doctor ${doctorName} en la clínica ${clinic}.`;
+    
+        const sendAtTimestamp = Math.floor(reminderDate.getTime() / 1000);
+        
+        const reminderMsg = {
+          to: email,
+          from: process.env.FROM_EMAIL,
+          subject: 'Recordatorio de cita médica',
+          text: formattedReminderText,
+          sendAt: sendAtTimestamp
+        };
+    
+        const reminderResult = await emailBreaker.fire(reminderMsg);
+        if (typeof reminderResult === 'string') {
+          return res.status(503).send(reminderResult);
+        }
+
+        logger.info(`Reminder scheduled for ${email}`, {
+          method: req.method,
+          url: req.originalUrl,
+          ip: req.headers && req.headers['x-forwarded-for'] || req.ip
+        });
+
+        res.status(200).json({ message: 'Email sent and scheduled successfully' });
+      } catch (error) {
+        logger.error(`Error scheduling reminder for: ${email}`, {
+          error: error.message,
+        });
+        res.status(500).json({ message: 'Failed to schedule reminder' });
       }
-      logger.error('Error scheduling the reminder', {
-        method: req.method,
-        url: req.originalUrl,
-        ip: req.headers && req.headers['x-forwarded-for'] || req.ip,
-        error: error.message
+    } catch (error) {
+      logger.error(`Error sending email to: ${email}`, {
+        error: error.message,
       });
+      res.status(500).json({ message: 'Failed to send email' });
     }
   } catch (error) {
-    if (error.message === 'Breaker is open') {
-      logger.error('Circuit breaker is open for SendGrid service, returning fallback response');
-      return res.status(503).json({ error: 'Email service temporarily unavailable' });
-    }
-    logger.error('Error sending email', {
-      method: req.method,
-      url: req.originalUrl,
-      ip: req.headers && req.headers['x-forwarded-for'] || req.ip,
-      error: error.message
+    logger.error(`Error sending email to: ${email}`, {
+      error: error.message,
     });
-    res.status(400).json({ message: error.message });
+    res.status(500).json({ message: 'Failed to send email' });
   }
 };
