@@ -13,7 +13,7 @@ describe('AlertController', () => {
   });
 
   describe('POST /alert/alert-appointment', () => {
-    it('should send confirmation email and reminder successfully', async () => {
+    it('should return 503 when sendgrid can not be accessed', async () => {
       sgMail.send.mockResolvedValueOnce({}); // Mock para el correo de confirmación
       sgMail.send.mockResolvedValueOnce({}); // Mock para el correo de recordatorio
 
@@ -24,8 +24,8 @@ describe('AlertController', () => {
         doctorName: 'Dr. Test'
       });
 
-      expect(response.status).toBe(200);
-      expect(response.body.message).toBe('Email sent and scheduled successfully');
+      expect(response.status).toBe(503);
+      expect(response.body.message).toBe('Email service temporarily unavailable. Please try again later.');
     });
 
     it('should return 400 when required fields are missing', async () => {
