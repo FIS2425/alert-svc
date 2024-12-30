@@ -13,21 +13,19 @@ class KafkaTransport extends winston.Transport {
     this.producer.on('error', (err) => console.error('Kafka producer error:', err));
   }
 
-  log(info, callback) {
-    const message = JSON.stringify({
-      ...info
-    });
+  async log(info, _callback) {
+    const message = {
+      value: JSON.stringify({ ...info })
+    };
 
     const payloads = [{ topic: this.topic, messages: message }];
 
     // Send the log to Kafka
-    this.producer.send(payloads, (err) => {
-      if (err) {
-        console.error('Error sending log to Kafka:', err);
-      }
-
-      if (callback) callback();
-    });
+    try {
+      await this.producer.connect();
+      await this.producer.send(payloads);
+      await this.producer.disconnect();
+    } catch { }
   }
 }
 
