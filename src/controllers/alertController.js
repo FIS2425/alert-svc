@@ -5,17 +5,20 @@ import CircuitBreaker from 'opossum';
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 // Función para enviar emails usando SendGrid
-const sendEmail = async (msg) => {
-  try {
-    await sgMail.send(msg);
-    logger.info(`Email sent successfully to: ${msg.to}`);
-  } catch (error) {
-    logger.error(`Error sending email to: ${msg.to}`, {
-      error: error.message,
-    });
-    throw error;
+const sendEmail = async (msg, retries = 3) => {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      await sgMail.send(msg);
+      return { success: true };
+    } catch (error) {
+      if (attempt === retries) {
+        throw error; // Propagar el error después del último intento
+      }
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Esperar antes del siguiente intento
+    }
   }
 };
+
 
 const circuitBreakerEmailOptions = {
   timeout: 5000,
@@ -38,7 +41,7 @@ emailBreaker.on('close', () => {
 // Fallback del Circuit Breaker
 emailBreaker.fallback(() => {
   logger.error('Circuit Breaker Fallback activated for SendGrid');
-  return { message: 'Email service temporarily unavailable. Please try again later.' };
+  return { fallback: true, message: 'Email service temporarily unavailable. Please try again later.' };
 });
 
 export const alertAppointment = async (req, res) => {
@@ -54,7 +57,9 @@ export const alertAppointment = async (req, res) => {
     // Send appointment confirmation 
     const options = { year: 'numeric', month: 'long', day: 'numeric' };
     const formattedDate = new Date(dateAppointment).toLocaleDateString('es-ES', options);
-    const formattedTime = new Date(dateAppointment).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    const appointmentDate = new Date(dateAppointment);
+    appointmentDate.setHours(appointmentDate.getHours() - 1);
+    const formattedTime = appointmentDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
     const formattedText = `Estimado/a paciente, le recordamos que tiene una cita médica el ${formattedDate} a las ${formattedTime} con el doctor ${doctorName} en la clínica ${clinic}.`;
   
     const msg = {
@@ -64,9 +69,11 @@ export const alertAppointment = async (req, res) => {
       text: formattedText,
     };
   
+    console.log('msg', msg);
     try {
       const result = await emailBreaker.fire(msg);
-      if (typeof result === 'string') {
+      console.log('result', result);
+      if (result.fallback) {
         return res.status(503).send(result);
       }
 
@@ -80,10 +87,11 @@ export const alertAppointment = async (req, res) => {
       try {
         const reminderDate = new Date(dateAppointment);
         reminderDate.setDate(reminderDate.getDate() - 1); // 24 hours before the appointment
-        const formattedReminderTime = reminderDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-        const formattedReminderText = `Estimado/a paciente, le recordamos que tiene una cita médica mañana a las ${formattedReminderTime} con el doctor ${doctorName} en la clínica ${clinic}.`;
+        reminderDate.setHours(reminderDate.getHours() - 1);
+        const formattedReminderText = `Estimado/a paciente, le recordamos que tiene una cita médica mañana a las ${formattedTime} con el doctor ${doctorName} en la clínica ${clinic}.`;
     
         const sendAtTimestamp = Math.floor(reminderDate.getTime() / 1000);
+        console.log('sendAtTimestamp', sendAtTimestamp);
         
         const reminderMsg = {
           to: email,
@@ -94,7 +102,7 @@ export const alertAppointment = async (req, res) => {
         };
     
         const reminderResult = await emailBreaker.fire(reminderMsg);
-        if (typeof reminderResult === 'string') {
+        if (reminderResult.fallback) {
           return res.status(503).send(reminderResult);
         }
 
