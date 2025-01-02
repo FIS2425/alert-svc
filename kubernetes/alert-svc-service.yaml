@@ -7,7 +7,7 @@ spec:
   template:
     spec:
       containers:
-        - image: ghcr.io/fis2425/alert:pr.11
+        - image: ghcr.io/fis2425/alert:latest
           ports:
             - containerPort: 3004
           env:
