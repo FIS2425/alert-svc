@@ -15,9 +15,9 @@ export default function () {
   app.use(express.urlencoded({ extended: true }));
   app.use(cookieParser());
 
-  app.use('/alert/', router)
+  app.use((process.env.API_PREFIX || '') + '/alert/', router);
 
-  app.get('/', (req, res) => {
+  app.get(`${process.env.API_PREFIX || ''}/`, (req, res) => {
     res.send('API funcionando correctamente');
   });
 

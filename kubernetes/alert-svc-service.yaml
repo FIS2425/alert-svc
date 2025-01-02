@@ -21,6 +21,11 @@ spec:
                 secretKeyRef:
                   name: alert-secrets
                   key: KAFKA_HOST
+            - name: API_PREFIX
+              valueFrom:
+                secretKeyRef:
+                  name: alert-secrets
+                  key: API_PREFIX
             - name: SENDGRID_API_KEY
               valueFrom:
                 secretKeyRef:
