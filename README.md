@@ -1,5 +1,4 @@
 # Template: Node.js Microservice
-
 ## ⚙️ Project Setup
 
 ### 1. Clone the Repository ⬇️
@@ -81,6 +80,7 @@ logger.http('Incoming HTTP request', {
   method: 'GET',
   url: '/api/appointments',
   userUid: 'a71b0cbd-7edd-4ae1-919b-403a33fba2eb',
+  userUid: 'a71b0cbd-7edd-4ae1-919b-403a33fba2eb',
   params: { date: '2024-11-04', status: 'confirmed' }
 });
 ```
@@ -99,3 +99,34 @@ docker compose up -d
 ```
 
 This command launches your deployed Docker image in detached mode.
+
+## Knative Setup in Minikube
+
+To install Knative on Minikube, follow these steps:
+
+1. From https://github.com/knative-extensions/kn-plugin-quickstart/releases install kn-quickstart-amd64 for windows
+
+2. Rename it to kn
+
+3. Add it to PATH
+
+4. Use in the powershell as an admin
+  ```bash
+  kn minikube
+  ```
+
+5. Follow the steps on console
+
+6. Create secrets and do
+  ```bash
+  kubectl apply -f ./kubernetes/
+  ```
+7. You will get the url of the service using the following command:
+  ```bash
+  kubectl get ksvc
+  ```
+
+From now on, instead of minikube start, you will use
+```bash
+minikube tunnel --profile knative 
+```
