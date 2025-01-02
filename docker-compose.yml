@@ -1,19 +1,6 @@
 version: "3.8"
 
 services:
-  mongodb:
-    restart: unless-stopped
-    image: mongo:latest
-    container_name: mongodb-alert
-    environment:
-      - MONGO_INITDB_ROOT_USERNAME=${MONGOADMIN}
-      - MONGO_INITDB_ROOT_PASSWORD=${MONGOPASS}
-    networks:
-      - backend
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo-data:/data/db
 
   alert-svc:
     restart: unless-stopped
@@ -28,15 +15,10 @@ services:
       - SENDGRID_API_KEY=${SENDGRID_API_KEY}
       - FROM_EMAIL=${FROM_EMAIL}
       - PORT=3004
-    depends_on:
-      - mongodb
     networks:
       - backend
     ports:
       - "3004:3004"
-
-volumes:
-  mongo-data:
 
 networks:
   backend:
