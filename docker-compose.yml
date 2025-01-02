@@ -22,14 +22,18 @@ services:
       dockerfile: Dockerfile
     container_name: alert-svc
     environment:
-      - MONGODB_URL=${MONGOURL}
-      - PORT=3001
+      - NODE_ENV=${NODE_ENV}
+      - KAFKA_HOST=${KAFKA_HOST}
+      - API_PREFIX=${API_PREFIX}
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY}
+      - FROM_EMAIL=${FROM_EMAIL}
+      - PORT=3004
     depends_on:
       - mongodb
     networks:
       - backend
     ports:
-      - "3001:3001"
+      - "3004:3004"
 
 volumes:
   mongo-data:
