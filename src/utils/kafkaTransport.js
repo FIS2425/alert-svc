@@ -1,32 +1,58 @@
 import winston from 'winston';
-import { KafkaClient, Producer } from 'kafka-node';
+import { Kafka } from 'kafkajs';
 
 class KafkaTransport extends winston.Transport {
   constructor(opts) {
     super(opts);
 
-    this.client = new KafkaClient({ kafkaHost: opts.kafkaHost || process.env.KAFKA_HOST });
-    this.producer = new Producer(this.client);
+    this.client = new Kafka({
+      clientId: 'auth',
+      brokers: [process.env.KAFKA_HOST]
+    });
+    this.producer = this.client.producer();
 
     this.topic = opts.topic || 'logs';
-    this.producer.on('ready', () => console.log('Kafka producer is ready'));
-    this.producer.on('error', (err) => console.error('Kafka producer error:', err));
+
+    this.isProducerConnected = false;
+
+    this.initializeProducer();
   }
 
-  async log(info, _callback) {
-    const message = {
-      value: JSON.stringify({ ...info })
-    };
-
-    const payloads = [{ topic: this.topic, messages: message }];
-
-    // Send the log to Kafka
+  async initializeProducer() {
     try {
       await this.producer.connect();
-      await this.producer.send(payloads);
-      await this.producer.disconnect();
-    } catch { }
+      this.isProducerConnected = true;
+    } catch (error) {
+      console.error('Error connecting Kafka producer:', error);
+    }
   }
-}
+
+  async log(info, callback) {
+    const message = {
+      value: JSON.stringify({ ...info }),
+    };
+    const payloads = { topic: this.topic, messages: [message] };
+
+    try {
+      if (!this.isProducerConnected) {
+        if (callback) callback();
+        return;
+      }
+      await this.producer.send(payloads);
+
+      if (callback) callback();
+    } catch (error) {
+      if (callback) callback(error);
+    }
+  }
+
+  async close() {
+    try {
+      await this.producer.disconnect();
+    } catch (error) {
+      console.error('Error disconnecting Kafka producer:', error);
+    }
+  }
+};
 
 export default KafkaTransport;
