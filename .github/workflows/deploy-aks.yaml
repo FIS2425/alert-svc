@@ -1,0 +1,63 @@
+name: Deploy to Knative
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows:
+      - Build and Push Docker Image
+    types:
+      - completed
+    branches:
+      - main
+      - develop
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up KUBECONFIG
+      uses: azure/k8s-set-context@v4
+      with:
+        kubeconfig: ${{ secrets.KUBECONFIG }}
+
+    - name: Set up Knative on AKS
+      run: |
+        echo "Installing Knative Serving..."
+        kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.13.0/serving-crds.yaml
+        kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.13.0/serving-core.yaml
+
+        echo "Installing Kourier as ingress..."
+        kubectl apply -f https://github.com/knative/net-kourier/releases/download/knative-v1.16.0/kourier.yaml
+        kubectl patch configmap/config-network -n knative-serving --type merge -p '{"data":{"ingress.class":"kourier.ingress.networking.knative.dev"}}'
+
+    - name: Verify Knative Installation
+      run: |
+        echo "Checking Knative components..."
+        kubectl get pods -n knative-serving
+        kubectl get services -n knative-serving
+
+    - name: Load environment variables
+      run: |
+        echo "Loading environment variables..."
+        echo "${{ secrets.ENV_FILE }}" > .env
+
+    - name: Create or Update Kubernetes Secrets
+      run: |
+        echo "Applying secrets: ${{ secrets.SECRETS_NAME }}"
+        kubectl create secret generic ${{ secrets.SECRETS_NAME }} --from-env-file=.env --dry-run=client -o yaml | kubectl apply -f -
+
+    - name: Apply manifests
+      run: |
+        echo "Apply manifests..."
+        kubectl apply -f kubernetes/
+
+    - name: Verify Knative Service Deployment
+      run: |
+        echo "Verifying Knative service deployment..."
+        kubectl get ksvc alert-svc -n default
+        kubectl describe ksvc alert-svc -n default

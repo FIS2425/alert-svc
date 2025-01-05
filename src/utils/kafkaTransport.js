@@ -1,12 +1,15 @@
 import winston from 'winston';
-import { KafkaClient, Producer } from 'kafka-node';
+import { Kafka } from 'kafkajs';
 
 class KafkaTransport extends winston.Transport {
   constructor(opts) {
     super(opts);
 
-    this.client = new KafkaClient({ kafkaHost: opts.kafkaHost || process.env.KAFKA_HOST });
-    this.producer = new Producer(this.client);
+    this.client = new Kafka({
+      clientId: 'auth',
+      brokers: [process.env.KAFKA_HOST]
+    });
+    this.producer = this.client.producer();
 
     this.topic = opts.topic || 'logs';
 
@@ -50,6 +53,6 @@ class KafkaTransport extends winston.Transport {
       console.error('Error disconnecting Kafka producer:', error);
     }
   }
-}
+};
 
 export default KafkaTransport;

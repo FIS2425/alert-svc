@@ -51,6 +51,7 @@
     "cors": "2.8.5",
     "express": "4.21.1",
     "kafka-node": "5.0.0",
+    "kafkajs": "2.2.4",
     "mongoose": "8.7.3",
     "opossum": "8.4.0",
     "swagger-ui-express": "5.0.1",
