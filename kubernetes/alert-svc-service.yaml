@@ -9,7 +9,7 @@ spec:
       containers:
         - image: ghcr.io/fis2425/alert:latest
           ports:
-            - containerPort: 3004
+            - containerPort: 80
           env:
             - name: NODE_ENV
               valueFrom:
